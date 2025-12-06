@@ -1,5 +1,7 @@
 package org.example.stackflowanalysis.Data;
 
+import com.fasterxml.jackson.annotation.JsonSetter;
+import com.fasterxml.jackson.annotation.Nulls;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 import java.util.HashSet;
@@ -16,10 +18,14 @@ public class Question {
     private String content;
     @Column(nullable = false)
     private LocalDateTime dateTime;
+    @JsonSetter(nulls = Nulls.AS_EMPTY)
     private int score;
+    @JsonSetter(nulls = Nulls.AS_EMPTY)
     private int viewCount;
+    @JsonSetter(nulls = Nulls.AS_EMPTY)
     private int answerCount;
-    private boolean isClosed;
+    @JsonSetter(nulls = Nulls.AS_EMPTY)
+    private boolean isAnswered;
     @ManyToMany(cascade = {CascadeType.PERSIST, CascadeType.MERGE})
     @JoinTable(
             name = "question_tags",
@@ -55,8 +61,8 @@ public class Question {
     public void setViewCount(int viewCount) { this.viewCount = viewCount; }
     public int getAnswerCount() { return answerCount; }
     public void setAnswerCount(int answerCount) { this.answerCount = answerCount; }
-    public boolean isClosed() { return isClosed; }
-    public void setClosed(boolean closed) { isClosed = closed; }
+    public boolean isAnswered() { return isAnswered; }
+    public void setAnswered(boolean answered) { isAnswered = answered; }
     public QuestionOwner getOwner() { return owner; }
     public void setOwner(QuestionOwner owner) { this.owner = owner; }
     public Set<Tag> getTags() { return tags; }

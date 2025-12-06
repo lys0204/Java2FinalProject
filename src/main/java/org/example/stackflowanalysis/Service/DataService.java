@@ -11,6 +11,7 @@ import org.example.stackflowanalysis.Repositories.QuestionRepository;
 import org.example.stackflowanalysis.Repositories.TagRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
@@ -18,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.HashSet;
+import java.util.Optional;
 import java.util.Set;
 
 @Service
@@ -38,7 +40,7 @@ public class DataService {
                     "&sort=votes" +
                     "&tagged=java" +
                     "&site=stackoverflow" +
-                    "&filter=!6WPIomp-eb(U5";
+                    "&filter=!aksql6NjneanAa";
     public void collectData() {
         int page = 1;
         int totalCollected = 0;
@@ -82,15 +84,21 @@ public class DataService {
                 owner,
                 qDto.getCreationDateTime()
         );
-         question.setScore(qDto.score());
-         question.setViewCount(qDto.viewCount());
+        question.setId(qDto.questionId());
+        question.setScore(qDto.score());
+        question.setViewCount(qDto.viewCount());
+        question.setAnswerCount(qDto.answerCount());
+        question.setAnswered(qDto.isAnswered());
+        question.setOwner(owner);
         Set<Tag> tags = new HashSet<>();
-        for (String tagName : qDto.tags()) {
-            Tag tag = tagRepository.findByName(tagName)
-                    .orElseGet(() -> tagRepository.save(new Tag(tagName)));
-            tags.add(tag);
+        if (qDto.tags() != null) {
+            for (String tagName : qDto.tags()) {
+                Tag tag = tagRepository.findByName(tagName)
+                        .orElseGet(() -> tagRepository.save(new Tag(tagName)));
+                tags.add(tag);
+            }
         }
-         question.setTags(tags);
+        question.setTags(tags);
         question = questionRepository.save(question);
         if (qDto.answers() != null) {
             for (AnswerDto aDto : qDto.answers()) {
@@ -101,18 +109,27 @@ public class DataService {
                         answerer,
                         aDto.getCreationDateTime()
                 );
-                 answer.setScore(aDto.score());
-                 answer.setAccepted(aDto.isAccepted());
+                answer.setId(aDto.answerId());
+                answer.setScore(aDto.score());
+                answer.setAccepted(aDto.isAccepted());
                 answerRepository.save(answer);
             }
         }
     }
 
     private QuestionOwner getOrCreateOwner(OwnerDto ownerDto) {
-        if (ownerDto == null || ownerDto.displayName() == null) {
+        if (ownerDto == null || ownerDto.displayName() == null || ownerDto.userId() == null) {
             return null;
         }
-        return ownerRepository.findByUsername(ownerDto.displayName())
-                .orElseGet(() -> ownerRepository.save(new QuestionOwner(ownerDto.displayName())));
+        Optional<QuestionOwner> existing = ownerRepository.findById(ownerDto.userId());
+        if (existing.isPresent()) {
+            return existing.get();
+        }
+        try {
+            return ownerRepository.save(new QuestionOwner(ownerDto.userId(), ownerDto.displayName()));
+        } catch (DataIntegrityViolationException e) {
+            return ownerRepository.findById(ownerDto.userId())
+                    .orElseThrow(() -> new RuntimeException("并发处理异常：保存失败且无法查询到数据", e));
+        }
     }
 }

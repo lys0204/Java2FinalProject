@@ -8,9 +8,8 @@ import java.util.Set;
 @Table(name = "question_owners")
 public class QuestionOwner {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-    @Column(unique = true, nullable = false)
+    @Column(nullable = false)
     private String username;
     @OneToMany(mappedBy = "owner")
     private Set<Question> questions = new HashSet<>();
@@ -18,7 +17,8 @@ public class QuestionOwner {
     private Set<Answer> answers = new HashSet<>();
 
     public QuestionOwner() {}
-    public QuestionOwner(String username) {
+    public QuestionOwner(Long id, String username) {
+        this.id = id;
         this.username = username;
     }
 

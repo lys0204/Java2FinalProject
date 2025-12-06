@@ -10,7 +10,7 @@ import java.util.List;
 public record QuestionDto(
         @JsonProperty("question_id") Long questionId,
         String title,
-        @JsonProperty("body") String body, // 需要在API请求中开启 filter=!withbody
+        @JsonProperty("body") String body,
         @JsonProperty("creation_date") Long creationDate,
         @JsonProperty("score") int score,
         @JsonProperty("view_count") int viewCount,

@@ -1,5 +1,7 @@
 package org.example.stackflowanalysis.Data;
 
+import com.fasterxml.jackson.annotation.JsonSetter;
+import com.fasterxml.jackson.annotation.Nulls;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
@@ -7,13 +9,14 @@ import java.time.LocalDateTime;
 @Table(name = "answers")
 public class Answer {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     @Column(columnDefinition = "TEXT", nullable = false)
     private String content;
     @Column(nullable = false)
     private LocalDateTime dateTime;
+    @JsonSetter(nulls = Nulls.AS_EMPTY)
     private int score;
+    @JsonSetter(nulls = Nulls.AS_EMPTY)
     private boolean isAccepted;
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "question_id", nullable = false)
