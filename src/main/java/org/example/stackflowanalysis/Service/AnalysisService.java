@@ -1,6 +1,6 @@
-package org.example.stackflowanalysis.AnalysisMethods;
+package org.example.stackflowanalysis.Service;
 
-import org.example.stackflowanalysis.DataStorage.*;
+import org.example.stackflowanalysis.Data.*;
 import org.example.stackflowanalysis.Repositories.QuestionRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

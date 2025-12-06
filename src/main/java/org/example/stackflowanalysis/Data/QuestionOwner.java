@@ -1,4 +1,4 @@
-package org.example.stackflowanalysis.DataStorage;
+package org.example.stackflowanalysis.Data;
 
 import jakarta.persistence.*;
 import java.util.HashSet;
