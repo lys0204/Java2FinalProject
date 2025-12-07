@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stack Overflow Data Analysis</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- Chart.js for visualizations -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Stack Overflow Java Data Analysis</h1>
+            <p>CS209A Final Project</p>
+        </header>
+
+        <section id="controls">
+            <div class="card">
+                <h2>Data Collection</h2>
+                <p>Status: <span id="collectionStatus">Ready</span></p>
+                <button id="collectBtn" onclick="triggerCollection()">Start Data Collection</button>
+            </div>
+        </section>
+
+        <nav>
+            <button class="tab-btn active" onclick="showTab('trends')">Topic Trends</button>
+            <button class="tab-btn" onclick="showTab('cooccurrence')">Co-occurrence</button>
+            <button class="tab-btn" onclick="showTab('pitfalls')">Multithreading Pitfalls</button>
+            <button class="tab-btn" onclick="showTab('solvability')">Solvability</button>
+        </nav>
+
+        <main>
+            <!-- Topic Trends Section -->
+            <section id="trends" class="tab-content active">
+                <h2>Topic Trends Over Time</h2>
+                <div class="chart-container">
+                    <canvas id="trendsChart"></canvas>
+                </div>
+                <div class="controls">
+                    <label>Tag: <input type="text" id="trendTag" value="java"></label>
+                    <button onclick="loadTrends()">Update Chart</button>
+                </div>
+            </section>
+
+            <!-- Co-occurrence Section -->
+            <section id="cooccurrence" class="tab-content">
+                <h2>Topic Co-occurrence</h2>
+                <div class="chart-container">
+                    <canvas id="cooccurrenceChart"></canvas>
+                </div>
+                <div class="controls">
+                    <label>Top N: <input type="number" id="coocN" value="10"></label>
+                    <button onclick="loadCooccurrence()">Update Chart</button>
+                </div>
+            </section>
+
+            <!-- Multithreading Pitfalls Section -->
+            <section id="pitfalls" class="tab-content">
+                <h2>Common Pitfalls in Multithreading</h2>
+                <div id="pitfallsList" class="data-list">
+                    <!-- List items will be populated here -->
+                    <p>Loading...</p>
+                </div>
+                <button onclick="loadPitfalls()">Refresh Analysis</button>
+            </section>
+
+            <!-- Solvability Section -->
+            <section id="solvability" class="tab-content">
+                <h2>Solvable vs. Hard-to-Solve Questions</h2>
+                <div class="comparison-container">
+                    <div class="chart-half">
+                        <h3>Solvable Characteristics</h3>
+                        <canvas id="solvableChart"></canvas>
+                    </div>
+                    <div class="chart-half">
+                        <h3>Hard-to-Solve Characteristics</h3>
+                        <canvas id="hardChart"></canvas>
+                    </div>
+                </div>
+                <button onclick="loadSolvability()">Analyze</button>
+            </section>
+        </main>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
