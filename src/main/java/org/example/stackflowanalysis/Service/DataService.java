@@ -123,13 +123,23 @@ public class DataService {
         }
         Optional<QuestionOwner> existing = ownerRepository.findById(ownerDto.userId());
         if (existing.isPresent()) {
-            return existing.get();
+            QuestionOwner owner = existing.get();
+            owner.setId(ownerDto.userId());
+            owner.setUsername(ownerDto.displayName());
+            owner.setReputation(ownerDto.reputation());
+            ownerRepository.save(owner);
+            return owner;
         }
         try {
-            return ownerRepository.save(new QuestionOwner(ownerDto.userId(), ownerDto.displayName()));
+            return ownerRepository.save(new QuestionOwner(ownerDto.userId(), ownerDto.displayName(), ownerDto.reputation()));
         } catch (DataIntegrityViolationException e) {
-            return ownerRepository.findById(ownerDto.userId())
+            QuestionOwner tar = ownerRepository.findById(ownerDto.userId())
                     .orElseThrow(() -> new RuntimeException("并发处理异常：保存失败且无法查询到数据", e));
+            tar.setId(ownerDto.userId());
+            tar.setUsername(ownerDto.displayName());
+            tar.setReputation(ownerDto.reputation());
+            ownerRepository.save(tar);
+            return tar;
         }
     }
 }

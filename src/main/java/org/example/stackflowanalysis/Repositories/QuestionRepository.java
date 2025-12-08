@@ -14,10 +14,21 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
     @Query("SELECT DISTINCT q FROM Question q LEFT JOIN FETCH q.tags")
     List<Question> findAllWithTags();
 
-    @Query("SELECT DISTINCT q FROM Question q JOIN q.tags t " +
-            "WHERE t.name = :tagName AND q.dateTime BETWEEN :startDate AND :endDate")
+    @Query("""
+            SELECT DISTINCT q FROM Question q JOIN q.tags t
+            WHERE t.name = :tagName AND q.dateTime BETWEEN :startDate AND :endDate
+            """)
     List<Question> findByTagAndDateRange(
             @Param("tagName") String tagName,
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate
+    );
+
+    @Query("""
+            SELECT DISTINCT q FROM Question q LEFT JOIN FETCH q.tags
+            WHERE q.dateTime BETWEEN :startDate AND :endDate
+            """)
+    List<Question> findWithTagsByMonth(
             @Param("startDate") LocalDateTime startDate,
             @Param("endDate") LocalDateTime endDate
     );
