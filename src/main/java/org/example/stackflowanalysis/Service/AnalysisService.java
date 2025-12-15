@@ -127,8 +127,9 @@ public class AnalysisService {
     // 辅助方法
     private String protectTechnicalPhrases(String text) {
         Map<String, String> phraseMap = new HashMap<>();
-        phraseMap.put("race condition", "racecondition");
-        phraseMap.put("dead lock", "deadlock"); // 归一化
+        // 复合多单词专业名词
+        phraseMap.put("race condition", "race_condition");
+        phraseMap.put("dead lock", "dead_lock");
         phraseMap.put("memory leak", "memory_leak");
         phraseMap.put("thread safe", "thread_safe");
         phraseMap.put("thread pool", "thread_pool");
@@ -151,15 +152,18 @@ public class AnalysisService {
     }
     private Set<String> getStopWords() {
         return new HashSet<>(Arrays.asList(
+                // 句子常用词
                 "the", "is", "are", "was", "were", "and", "or", "but", "if", "of", "to", "in", "on", "at",
                 "for", "with", "about", "by", "as", "it", "this", "that", "these", "those", "can", "could",
                 "would", "should", "have", "has", "had", "do", "does", "did", "not", "so", "be", "been",
+                "what", "quot", "how", "you", "all", "some", "one", "then", "which", "when", "there", "than",
+                "also", "than", "get", "any", "them", "work", "use", "used", "why",
                 // Java 关键字 (如果不想统计 public class 这种词)
                 "public", "private", "protected", "class", "interface", "void", "return", "static", "final",
                 "new", "import", "package", "try", "catch", "throw", "throws", "extends", "implements",
                 // 上下文噪音词
                 "code", "java", "problem", "issue", "question", "want", "need", "help", "using", "example",
-                "output", "error", "exception", "run", "running", "thread", "threads" // "thread" 太泛滥，通常也建议去掉
+                "output", "error", "exception", "run", "running"
         ));
     }
     private String formatResult(Number val1, Number val2) {
