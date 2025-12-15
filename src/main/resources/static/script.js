@@ -45,13 +45,19 @@ function showTab(tabId) {
 
 async function loadTrends() {
     const tag = document.getElementById('trendTag').value;
-    
+    const startInput = document.getElementById('trendStart').value;
+    const endInput = document.getElementById('trendEnd').value;
 
-    const end = new Date().toISOString();
-    const start = new Date('2008-01-01T00:00:00Z').toISOString();
+    // 如果输入为空，则使用默认值
+    const start = startInput || '2008-01';
+    const end = endInput || new Date().toISOString().slice(0, 7); // 当前 YYYY-MM
 
     try {
-        const response = await fetch(`${API_BASE}/trend?tagName=${tag}&start=${start}&end=${end}`);
+        // 使用正确的参数名：starttime 和 endtime
+        const response = await fetch(`${API_BASE}/trend?tagName=${tag}&starttime=${start}&endtime=${end}`);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
         const data = await response.json(); 
         const labels = Object.keys(data).sort();
         const values = labels.map(k => data[k]);
@@ -82,7 +88,7 @@ async function loadCooccurrence() {
     const n = document.getElementById('coocN').value || 10;
     
     try {
-        const response = await fetch(`${API_BASE}/topNpairs?topN=${n}`);
+        const response = await fetch(`${API_BASE}/topNpairs?topNStr=${n}`);
         const data = await response.json(); 
 
         const labels = data.map(item => Object.keys(item)[0]); 
@@ -147,7 +153,7 @@ async function loadSolvability() {
         const data = await response.json(); 
         const categories = Object.keys(data);
 
-        // Handle cleanup of previous instances
+        // 清理之前的图表实例
         if (Array.isArray(solvabilityChartInstance)) {
             solvabilityChartInstance.forEach(chart => chart.destroy());
         } else if (solvabilityChartInstance) {
@@ -156,18 +162,18 @@ async function loadSolvability() {
         solvabilityChartInstance = [];
 
         const container = document.getElementById('solvabilityChartsContainer');
-        container.innerHTML = ''; // Clear previous charts
+        container.innerHTML = ''; // 清除之前的图表
 
         categories.forEach(cat => {
             const parts = data[cat].split('_');
             const solvableVal = parseFloat(parts[0]);
             const hardVal = parseFloat(parts[1]);
 
-            // Create wrapper and canvas
+            // 创建容器和画布
             const wrapper = document.createElement('div');
             wrapper.className = 'chart-wrapper';
             
-            // Add title for the pie chart
+            // 添加饼图标题
             const title = document.createElement('h3');
             title.innerText = cat;
             title.style.textAlign = 'center';
@@ -185,8 +191,8 @@ async function loadSolvability() {
                     datasets: [{
                         data: [solvableVal, hardVal],
                         backgroundColor: [
-                            'rgba(75, 192, 192, 0.6)', // Green for Solvable
-                            'rgba(255, 99, 132, 0.6)'  // Red for Hard
+                            'rgba(75, 192, 192, 0.6)', // 绿色代表可解决
+                            'rgba(255, 99, 132, 0.6)'  // 红色代表难以解决
                         ],
                         borderColor: [
                             'rgba(75, 192, 192, 1)',
@@ -205,9 +211,6 @@ async function loadSolvability() {
                         tooltip: {
                             callbacks: {
                                 label: function(context) {
-                                    // We want to show info for BOTH Solvable and Hard, regardless of what is hovered.
-                                    // We can return an array of strings to show multiple lines.
-                                    
                                     const dataset = context.dataset;
                                     const total = context.chart._metasets[context.datasetIndex].total;
                                     

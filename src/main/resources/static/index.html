@@ -38,6 +38,8 @@
                 </div>
                 <div class="controls">
                     <label>Tag: <input type="text" id="trendTag" value="java"></label>
+                    <label>Start: <input type="month" id="trendStart" value="2008-01"></label>
+                    <label>End: <input type="month" id="trendEnd" value="2025-12"></label>
                     <button onclick="loadTrends()">Update Chart</button>
                 </div>
             </section>
@@ -58,11 +60,11 @@
                 </div>
                 <button onclick="loadPitfalls()">Refresh Analysis</button>
             </section>
-            <!-- Solvability Section -->
+            <!-- 可解决性分析部分 -->
             <section id="solvability" class="tab-content">
                 <h2>Solvable vs. Hard-to-Solve Questions</h2>
                 <div id="solvabilityChartsContainer" class="charts-grid">
-                    <!-- Pie charts will be injected here -->
+                    <!-- 饼状图将注入到这里 -->
                 </div>
                 <div class="controls">
                     <button onclick="loadSolvability()">Analyze</button>
