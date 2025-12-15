@@ -1,12 +1,12 @@
-// Base URL for API
+
 const API_BASE = '/api';
 
-// Global Chart Instances
+
 let trendsChartInstance = null;
 let coocChartInstance = null;
 let solvabilityChartInstance = null;
 
-// --- Data Collection ---
+
 async function triggerCollection() {
     const btn = document.getElementById('collectBtn');
     const status = document.getElementById('collectionStatus');
@@ -25,7 +25,7 @@ async function triggerCollection() {
     }
 }
 
-// --- Tab Navigation ---
+
 function showTab(tabId) {
     document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
     document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
@@ -46,9 +46,11 @@ function showTab(tabId) {
 // --- Topic Trends ---
 async function loadTrends() {
     const tag = document.getElementById('trendTag').value;
-    // Default range: last 12 months
+    
+    // Fix: Set range from 2008 (Stack Overflow launch) to now
+    // Because collected data might be sorted by votes (old questions)
     const end = new Date().toISOString();
-    const start = new Date(new Date().setFullYear(new Date().getFullYear() - 1)).toISOString();
+    const start = new Date('2008-01-01T00:00:00Z').toISOString();
 
     try {
         const response = await fetch(`${API_BASE}/trend?tagName=${tag}&start=${start}&end=${end}`);
@@ -186,8 +188,30 @@ async function loadSolvability() {
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                interaction: {
+                    mode: 'index',
+                    intersect: false,
+                },
                 scales: {
-                    y: { beginAtZero: true }
+                    y: {
+                        beginAtZero: true
+                    }
+                },
+                plugins: {
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                let label = context.dataset.label || '';
+                                if (label) {
+                                    label += ': ';
+                                }
+                                if (context.parsed.y !== null) {
+                                    label += context.parsed.y;
+                                }
+                                return label;
+                            }
+                        }
+                    }
                 }
             }
         });
