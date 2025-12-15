@@ -4,6 +4,7 @@ const API_BASE = '/api';
 // Global Chart Instances
 let trendsChartInstance = null;
 let coocChartInstance = null;
+let solvabilityChartInstance = null;
 
 // --- Data Collection ---
 async function triggerCollection() {
@@ -45,85 +46,158 @@ function showTab(tabId) {
 // --- Topic Trends ---
 async function loadTrends() {
     const tag = document.getElementById('trendTag').value;
-    
-    console.log(`Fetching trends for ${tag}...`);
-    
-    const mockLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
-    const mockData = [120, 190, 300, 500, 200, 300];
+    // Default range: last 12 months
+    const end = new Date().toISOString();
+    const start = new Date(new Date().setFullYear(new Date().getFullYear() - 1)).toISOString();
 
-    const ctx = document.getElementById('trendsChart').getContext('2d');
-    
-    if (trendsChartInstance) trendsChartInstance.destroy();
+    try {
+        const response = await fetch(`${API_BASE}/trend?tagName=${tag}&start=${start}&end=${end}`);
+        const data = await response.json(); // Map<String, Long>
 
-    trendsChartInstance = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: mockLabels,
-            datasets: [{
-                label: `Activity for tag: ${tag}`,
-                data: mockData,
-                borderColor: 'rgb(75, 192, 192)',
-                tension: 0.1
-            }]
-        },
-        options: { responsive: true, maintainAspectRatio: false }
-    });
+        const labels = Object.keys(data).sort();
+        const values = labels.map(k => data[k]);
+
+        const ctx = document.getElementById('trendsChart').getContext('2d');
+        if (trendsChartInstance) trendsChartInstance.destroy();
+
+        trendsChartInstance = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: `Activity for tag: ${tag}`,
+                    data: values,
+                    borderColor: 'rgb(75, 192, 192)',
+                    tension: 0.1
+                }]
+            },
+            options: { responsive: true, maintainAspectRatio: false }
+        });
+    } catch (e) {
+        console.error("Failed to load trends", e);
+    }
 }
 
 // --- Co-occurrence ---
 async function loadCooccurrence() {
-    const n = document.getElementById('coocN').value;
+    const n = document.getElementById('coocN').value || 10;
     
-    const mockLabels = ['java+spring', 'java+swing', 'java+multithreading', 'java+collections'];
-    const mockData = [500, 300, 200, 150];
+    try {
+        const response = await fetch(`${API_BASE}/topNpairs?topN=${n}`);
+        const data = await response.json(); // List<Entry<String, Integer>>
 
-    const ctx = document.getElementById('cooccurrenceChart').getContext('2d');
-    
-    if (coocChartInstance) coocChartInstance.destroy();
+        const labels = data.map(item => Object.keys(item)[0]); 
+        const values = data.map(item => Object.values(item)[0]);
 
-    coocChartInstance = new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: mockLabels,
-            datasets: [{
-                label: 'Co-occurrence Frequency',
-                data: mockData,
-                backgroundColor: 'rgba(244, 128, 36, 0.6)',
-                borderColor: 'rgba(244, 128, 36, 1)',
-                borderWidth: 1
-            }]
-        },
-        options: { responsive: true, maintainAspectRatio: false }
-    });
+        const ctx = document.getElementById('cooccurrenceChart').getContext('2d');
+        if (coocChartInstance) coocChartInstance.destroy();
+
+        coocChartInstance = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Co-occurrence Frequency',
+                    data: values,
+                    backgroundColor: 'rgba(244, 128, 36, 0.6)',
+                    borderColor: 'rgba(244, 128, 36, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: { responsive: true, maintainAspectRatio: false }
+        });
+    } catch (e) {
+        console.error("Failed to load co-occurrence", e);
+    }
 }
 
-// --- Pitfalls ---
+// --- Pitfalls (Word Cloud) ---
 async function loadPitfalls() {
-    const list = document.getElementById('pitfallsList');
-    list.innerHTML = '<p>Loading analysis...</p>';
+    try {
+        const response = await fetch(`${API_BASE}/wordcloud`);
+        const data = await response.json(); // Map<String, Long>
 
-    const mockPitfalls = [
-        "NullPointerException in concurrent maps: 150 occurrences",
-        "Deadlock in synchronized blocks: 89 occurrences",
-        "Race condition in shared variables: 76 occurrences",
-        "Thread starvation: 45 occurrences"
-    ];
+        // Transform to [[word, weight], ...]
+        const list = Object.entries(data).map(([word, weight]) => [word, weight]);
 
-    let html = '<ul>';
-    mockPitfalls.forEach(item => {
-        html += `<li class="data-item">${item}</li>`;
-    });
-    html += '</ul>';
-    
-    list.innerHTML = html;
+        const canvas = document.getElementById('pitfallsCanvas');
+        // Clear previous
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Check if WordCloud is loaded
+        if (typeof WordCloud !== 'undefined') {
+            WordCloud(canvas, {
+                list: list,
+                gridSize: 8,
+                weightFactor: function (size) {
+                    return Math.pow(size, 0.8) * 2; // Adjust scaling
+                },
+                fontFamily: 'Times, serif',
+                color: 'random-dark',
+                rotateRatio: 0.5,
+                backgroundColor: '#f0f0f0'
+            });
+        } else {
+            console.error("WordCloud library not loaded");
+        }
+    } catch (e) {
+        console.error("Failed to load word cloud", e);
+    }
 }
 
 // --- Solvability ---
 async function loadSolvability() {
-    console.log("Loading solvability analysis...");
+    try {
+        const response = await fetch(`${API_BASE}/solvability`);
+        const data = await response.json(); 
+        // Data format: {"Trendiness": "12.5_10.0", ...}
+
+        const categories = Object.keys(data);
+        const solvableValues = [];
+        const hardValues = [];
+
+        categories.forEach(cat => {
+            const parts = data[cat].split('_');
+            solvableValues.push(parseFloat(parts[0]));
+            hardValues.push(parseFloat(parts[1]));
+        });
+
+        const ctx = document.getElementById('solvabilityChart').getContext('2d');
+        if (solvabilityChartInstance) solvabilityChartInstance.destroy();
+
+        solvabilityChartInstance = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: categories,
+                datasets: [
+                    {
+                        label: 'Solvable Questions',
+                        data: solvableValues,
+                        backgroundColor: 'rgba(75, 192, 192, 0.6)'
+                    },
+                    {
+                        label: 'Hard Questions',
+                        data: hardValues,
+                        backgroundColor: 'rgba(255, 99, 132, 0.6)'
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: { beginAtZero: true }
+                }
+            }
+        });
+    } catch (e) {
+        console.error("Failed to load solvability", e);
+    }
 }
 
 // Initial load
 document.addEventListener('DOMContentLoaded', () => {
-    showTab('trends');
+    // Do not auto-load trends to save API calls on startup, or keep it if desired
+    // showTab('trends'); 
 });

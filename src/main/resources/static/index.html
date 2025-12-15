@@ -7,6 +7,8 @@
     <link rel="stylesheet" href="style.css">
     <!-- Chart.js for visualizations -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- WordCloud2.js for word clouds -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/wordcloud2.js/1.2.2/wordcloud2.min.js"></script>
 </head>
 <body>
     <div class="container">
@@ -57,10 +59,9 @@
 
             <!-- Multithreading Pitfalls Section -->
             <section id="pitfalls" class="tab-content">
-                <h2>Common Pitfalls in Multithreading</h2>
-                <div id="pitfallsList" class="data-list">
-                    <!-- List items will be populated here -->
-                    <p>Loading...</p>
+                <h2>Common Pitfalls in Multithreading (Word Cloud)</h2>
+                <div class="chart-container">
+                    <canvas id="pitfallsCanvas" width="800" height="500"></canvas>
                 </div>
                 <button onclick="loadPitfalls()">Refresh Analysis</button>
             </section>
@@ -68,15 +69,8 @@
             <!-- Solvability Section -->
             <section id="solvability" class="tab-content">
                 <h2>Solvable vs. Hard-to-Solve Questions</h2>
-                <div class="comparison-container">
-                    <div class="chart-half">
-                        <h3>Solvable Characteristics</h3>
-                        <canvas id="solvableChart"></canvas>
-                    </div>
-                    <div class="chart-half">
-                        <h3>Hard-to-Solve Characteristics</h3>
-                        <canvas id="hardChart"></canvas>
-                    </div>
+                <div class="chart-container">
+                    <canvas id="solvabilityChart"></canvas>
                 </div>
                 <button onclick="loadSolvability()">Analyze</button>
             </section>
