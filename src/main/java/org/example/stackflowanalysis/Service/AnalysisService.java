@@ -10,6 +10,7 @@ import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.TemporalAdjusters;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -18,6 +19,7 @@ import java.util.stream.Collectors;
 public class AnalysisService {
 
     private final QuestionRepository questionRepository;
+    private final Map<String, Set<String>> monthTopTagsCache = new ConcurrentHashMap<>();
 
     public AnalysisService(QuestionRepository questionRepository) {
         this.questionRepository = questionRepository;
@@ -40,6 +42,8 @@ public class AnalysisService {
         for (Question q : allQuestions) {
             List<String> tags = q.getTags().stream()
                     .map(Tag::getName)
+                    // 不包含Java的Tag版本
+                    .filter(tar -> !tar.equals("java"))
                     .sorted()
                     .toList();
             for (int i = 0; i < tags.size(); i++) {
@@ -99,29 +103,38 @@ public class AnalysisService {
     // 分析问题解决的因素
     public Map<String, Object> compareSolvability() {
         List<Question> all = questionRepository.findAllWithAnswers();
-        List<Question> solvable = all.stream()
-                .filter(q -> q.getAnswers() != null && q.getAnswers().stream()
-                        .anyMatch(a -> a.isAccepted() || a.getScore() > 0))
-                .toList();
-        List<Question> hard = all.stream()
-                .filter(q -> !solvable.contains(q))
-                .toList();
+        preComputeMonthTopTags(all);
+        List<Question> solvable = new ArrayList<>();
+        List<Question> hard = new ArrayList<>();
+        for (Question q : all) {
+            boolean isSolvable = false;
+            if (q.getAnswers() != null) {
+                for (Answer a : q.getAnswers()) {
+                    if (a.isAccepted() || a.getScore() > 0) {
+                        isSolvable = true;
+                        break;
+                    }
+                }
+            }
+            if (isSolvable) {
+                solvable.add(q);
+            }
+            else {
+                hard.add(q);
+            }
+        }
+        // 时间检定
         Map<String, Object> result = new HashMap<>();
-        long trendSolvable = countTagsinTime(solvable);
-        long trendHard = countTagsinTime(hard);
+        long trendSolvable = countTagsinTimeWithCache(solvable);
+        long trendHard = countTagsinTimeWithCache(hard);
         result.put("Trendiness", formatResult(trendSolvable, trendHard));
-        double complexitySolvable = calculateAvgTagCount(solvable);
-        double complexityHard = calculateAvgTagCount(hard);
-        result.put("Complexity", formatResult(complexitySolvable, complexityHard));
-        double detailSolvable = calculateAvgWordCount(solvable);
-        double detailHard = calculateAvgWordCount(hard);
-        result.put("Detail", formatResult(detailSolvable, detailHard));
-        double repSolvable = calculateAvgAnswererReputation(solvable);
-        double repHard = calculateAvgAnswererReputation(hard);
-        result.put("Reputation", formatResult(repSolvable, repHard));
-        double scoreSolvable = calculateAvgAnswerScore(solvable);
-        double scoreHard = calculateAvgAnswerScore(hard);
-        result.put("Answer Score", formatResult(scoreSolvable, scoreHard));
+        // 统计数据计算
+        double[] solvableStats = calculateAllStats(solvable);
+        double[] hardStats = calculateAllStats(hard);
+        result.put("Complexity", formatResult(solvableStats[0], hardStats[0]));
+        result.put("Detail", formatResult(solvableStats[1], hardStats[1]));
+        result.put("Reputation", formatResult(solvableStats[2], hardStats[2]));
+        result.put("Answer Score", formatResult(solvableStats[3], hardStats[3]));
         return result;
     }
     // 辅助方法
@@ -156,14 +169,15 @@ public class AnalysisService {
                 "the", "is", "are", "was", "were", "and", "or", "but", "if", "of", "to", "in", "on", "at",
                 "for", "with", "about", "by", "as", "it", "this", "that", "these", "those", "can", "could",
                 "would", "should", "have", "has", "had", "do", "does", "did", "not", "so", "be", "been",
-                "what", "quot", "how", "you", "all", "some", "one", "then", "which", "when", "there", "than",
-                "also", "than", "get", "any", "them", "work", "use", "used", "why",
+                "what", "how", "you", "all", "some", "one", "then", "which", "when", "there", "than",
+                "also", "than", "any", "them", "why", "here", "will",
                 // Java 关键字 (如果不想统计 public class 这种词)
                 "public", "private", "protected", "class", "interface", "void", "return", "static", "final",
-                "new", "import", "package", "try", "catch", "throw", "throws", "extends", "implements",
+                "new", "import", "package", "try", "catch", "throw", "throws", "extends", "implements", "thread",
+                "threads", "false", "int", "long", "main", "string", "true", "null", "println",
                 // 上下文噪音词
                 "code", "java", "problem", "issue", "question", "want", "need", "help", "using", "example",
-                "output", "error", "exception", "run", "running"
+                "output", "error", "exception", "run", "running", "work", "use", "used", "get", "quot", "like"
         ));
     }
     private String formatResult(Number val1, Number val2) {
@@ -231,5 +245,77 @@ public class AnalysisService {
                 .filter(avg -> avg != 0)
                 .average()
                 .orElse(0.0);
+    }
+    private void preComputeMonthTopTags(List<Question> questions) {
+        monthTopTagsCache.clear();
+        Map<String, List<Question>> questionsByMonth = questions.stream()
+                .collect(Collectors.groupingBy(q ->
+                        q.getDateTime().format(DateTimeFormatter.ofPattern("yyyy-MM"))));
+        for (Map.Entry<String, List<Question>> entry : questionsByMonth.entrySet()) {
+            String month = entry.getKey();
+            List<Question> monthQuestions = entry.getValue();
+            Map<String, Integer> tagCounts = new HashMap<>();
+            for (Question q : monthQuestions) {
+                for (Tag tag : q.getTags()) {
+                    tagCounts.put(tag.getName(), tagCounts.getOrDefault(tag.getName(), 0) + 1);
+                }
+            }
+            Set<String> topTags = tagCounts.entrySet().stream()
+                    .sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
+                    .limit(10)
+                    .map(Map.Entry::getKey)
+                    .collect(Collectors.toSet());
+            monthTopTagsCache.put(month, topTags);
+        }
+    }
+    private long countTagsinTimeWithCache(List<Question> questions) {
+        long count = 0;
+        for (Question q : questions) {
+            String month = q.getDateTime().format(DateTimeFormatter.ofPattern("yyyy-MM"));
+            Set<String> topTagNames = monthTopTagsCache.get(month);
+            if (topTagNames != null && inTopTags(q, topTagNames)) {
+                count++;
+            }
+        }
+        return count;
+    }
+    private double[] calculateAllStats(List<Question> questions) {
+        double totalTags = 0;
+        double totalWords = 0;
+        double totalReputation = 0;
+        double totalRepQuestions = 0;
+        double totalScore = 0;
+        double totalScoreQuestions = 0;
+        for (Question q : questions) {
+            totalTags += (q.getTags() == null ? 0 : q.getTags().size());
+            String content = q.getContent();
+            if (content != null && !content.isEmpty()) {
+                totalWords += content.trim().split("\\s+").length;
+            }
+            if (q.getAnswers() != null && !q.getAnswers().isEmpty()) {
+                double questionRepSum = 0;
+                double questionScoreSum = 0;
+                int validAnswers = 0;
+                for (Answer a : q.getAnswers()) {
+                    if (a.getAnswerer() != null) {
+                        questionRepSum += a.getAnswerer().getReputation();
+                        validAnswers++;
+                    }
+                    questionScoreSum += a.getScore();
+                }
+                if (validAnswers > 0) {
+                    totalReputation += questionRepSum / validAnswers;
+                    totalRepQuestions++;
+                }
+                totalScore += questionScoreSum / q.getAnswers().size();
+                totalScoreQuestions++;
+            }
+        }
+        int questionCount = questions.size();
+        double avgTags = questionCount > 0 ? totalTags / questionCount : 0;
+        double avgWords = questionCount > 0 ? totalWords / questionCount : 0;
+        double avgRep = totalRepQuestions > 0 ? totalReputation / totalRepQuestions : 0;
+        double avgScore = totalScoreQuestions > 0 ? totalScore / totalScoreQuestions : 0;
+        return new double[]{avgTags, avgWords, avgRep, avgScore};
     }
 }

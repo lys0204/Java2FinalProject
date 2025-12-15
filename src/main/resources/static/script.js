@@ -130,9 +130,9 @@ async function loadPitfalls() {
         if (typeof WordCloud !== 'undefined') {
             WordCloud(canvas, {
                 list: list,
-                gridSize: 8,
+                gridSize: 18,
                 weightFactor: function (size) {
-                    return Math.pow(size, 0.8) * 2;
+                    return Math.pow(size, 0.9) * 0.3;
                 },
                 fontFamily: 'Times, serif',
                 color: 'random-dark',

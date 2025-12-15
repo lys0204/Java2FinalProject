@@ -18,9 +18,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
 
-import java.util.HashSet;
-import java.util.Optional;
-import java.util.Set;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 @Service
 public class DataService {
@@ -31,22 +33,54 @@ public class DataService {
     @Autowired private AnswerRepository answerRepository;
 
     private final RestTemplate restTemplate = new RestTemplate();
-
-    private static final String API_URL =
+    private static final String API_URL_TEMPLATE =
             "https://api.stackexchange.com/2.3/questions?" +
                     "page=%d" +
                     "&pagesize=50" +
+                    "&fromdate=%d" +
+                    "&todate=%d" +
                     "&order=desc" +
-                    "&sort=votes" +
+                    "&sort=%s" +
                     "&tagged=java" +
                     "&site=stackoverflow" +
                     "&filter=!aksql6NjneanAa";
+
+    private static final String[] SORT_STRATEGIES = {
+            "votes",
+            "creation",
+            "hot",
+            "week",
+            "month"
+    };
+    private final Set<Long> collectedQuestionIds = ConcurrentHashMap.newKeySet();
     public void collectData() {
+        System.out.println("开始多维度数据收集...");
+        LocalDateTime endDate = LocalDateTime.now();
+        LocalDateTime startDate = endDate.minusYears(15);
+        long startTimestamp = startDate.toEpochSecond(ZoneOffset.UTC);
+        long endTimestamp = endDate.toEpochSecond(ZoneOffset.UTC);
+        long chunkSeconds = 720L * 24 * 60 * 60;
+        for (long chunkStart = startTimestamp; chunkStart < endTimestamp; chunkStart += chunkSeconds) {
+            long chunkEnd = Math.min(chunkStart + chunkSeconds, endTimestamp);
+            for (String sortStrategy : SORT_STRATEGIES) {
+                System.out.printf("时间片 %s 至 %s | 排序: %s%n",
+                        LocalDateTime.ofEpochSecond(chunkStart, 0, ZoneOffset.UTC),
+                        LocalDateTime.ofEpochSecond(chunkEnd, 0, ZoneOffset.UTC),
+                        sortStrategy);
+                collectDataForStrategy(chunkStart, chunkEnd, sortStrategy, 25);
+                try { Thread.sleep(1000); } catch (InterruptedException e) { break; }
+            }
+            try { Thread.sleep(3000); } catch (InterruptedException e) { break; }
+        }
+        System.out.println("数据收集完成！总共收集唯一问题: " + collectedQuestionIds.size());
+    }
+    private void collectDataForStrategy(long fromDate, long toDate, String sortStrategy, int maxPages) {
         int page = 1;
-        int totalCollected = 0;
-        while (totalCollected < 1000) {
-            System.out.println("Fetching page " + page + "...");
-            String url = String.format(API_URL, page);
+        int totalInThisRun = 0;
+        maxPages = Math.min(maxPages, 25);
+        while (page <= maxPages) {
+            String url = String.format(API_URL_TEMPLATE, page, fromDate, toDate, sortStrategy);
+            System.out.println("  获取第 " + page + " 页...");
             try {
                 ResponseEntity<StackOverflowResponse<QuestionDto>> responseEntity =
                         restTemplate.exchange(
@@ -56,23 +90,36 @@ public class DataService {
                                 new ParameterizedTypeReference<StackOverflowResponse<QuestionDto>>() {}
                         );
                 StackOverflowResponse<QuestionDto> response = responseEntity.getBody();
-                if (response != null && response.items() != null) {
-                    for (QuestionDto qDto : response.items()) {
-                        saveQuestionData(qDto);
-                    }
-                    totalCollected += response.items().size();
-                    System.out.println("Collected so far: " + totalCollected);
+                if (response == null || response.items() == null || response.items().isEmpty()) {
+                    System.out.println("  无数据，停止当前策略");
+                    break;
                 }
+                int newItems = 0;
+                for (QuestionDto qDto : response.items()) {
+                    if (!collectedQuestionIds.contains(qDto.questionId())) {
+                        saveQuestionData(qDto);
+                        collectedQuestionIds.add(qDto.questionId());
+                        newItems++;
+                    }
+                }
+                totalInThisRun += newItems;
+                System.out.printf("  获取%d条，其中%d条新数据%n",
+                        response.items().size(), newItems);
                 Thread.sleep(2000);
-                if (response == null || !response.hasMore()) {
+                if (!response.hasMore()) {
                     break;
                 }
                 page++;
+            } catch (org.springframework.web.client.HttpClientErrorException.TooManyRequests e) {
+                System.out.println("  遇到速率限制，等待60秒...");
+                try { Thread.sleep(60000); } catch (InterruptedException ie) { break; }
             } catch (Exception e) {
-                e.printStackTrace();
-                break;
+                System.out.println("  请求出错: " + e.getMessage() + "，跳过本页");
+                page++;
+                try { Thread.sleep(5000); } catch (InterruptedException ie) { break; }
             }
         }
+        System.out.printf("当前策略完成，收集%d条新数据%n", totalInThisRun);
     }
 
     @Transactional
@@ -91,16 +138,29 @@ public class DataService {
         question.setAnswered(qDto.isAnswered());
         question.setOwner(owner);
         Set<Tag> tags = new HashSet<>();
-        if (qDto.tags() != null) {
+        if (qDto.tags() != null && !qDto.tags().isEmpty()) {
+            List<Tag> existingTags = tagRepository.findByNameIn(qDto.tags());
+            Map<String, Tag> existingTagMap = existingTags.stream()
+                    .collect(Collectors.toMap(Tag::getName, tag -> tag));
+            List<Tag> newTags = new ArrayList<>();
             for (String tagName : qDto.tags()) {
-                Tag tag = tagRepository.findByName(tagName)
-                        .orElseGet(() -> tagRepository.save(new Tag(tagName)));
-                tags.add(tag);
+                Tag tag = existingTagMap.get(tagName);
+                if (tag != null) {
+                    tags.add(tag);
+                } else {
+                    Tag newTag = new Tag(tagName);
+                    newTags.add(newTag);
+                    tags.add(newTag);
+                }
+            }
+            if (!newTags.isEmpty()) {
+                tagRepository.saveAll(newTags);
             }
         }
         question.setTags(tags);
         question = questionRepository.save(question);
-        if (qDto.answers() != null) {
+        if (qDto.answers() != null && !qDto.answers().isEmpty()) {
+            List<Answer> answersToSave = new ArrayList<>();
             for (AnswerDto aDto : qDto.answers()) {
                 QuestionOwner answerer = getOrCreateOwner(aDto.owner());
                 Answer answer = new Answer(
@@ -112,8 +172,9 @@ public class DataService {
                 answer.setId(aDto.answerId());
                 answer.setScore(aDto.score());
                 answer.setAccepted(aDto.isAccepted());
-                answerRepository.save(answer);
+                answersToSave.add(answer);
             }
+            answerRepository.saveAll(answersToSave);
         }
     }
 

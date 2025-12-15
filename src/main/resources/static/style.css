@@ -1,3 +1,11 @@
+#pitfallsCanvas {
+    width: 100%;
+    max-width: 800px;
+    height: 400px;
+    display: block;
+    margin: 0 auto;
+}
+
 :root {
     --primary-color: #f48024; 
     --secondary-color: #bcbbbb;
