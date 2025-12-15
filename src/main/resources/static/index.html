@@ -5,9 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Stack Overflow Data Analysis</title>
     <link rel="stylesheet" href="style.css">
-    <!-- Chart.js for visualizations -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- WordCloud2.js for word clouds -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/wordcloud2.js/1.2.2/wordcloud2.min.js"></script>
 </head>
 <body>
@@ -33,7 +31,6 @@
         </nav>
 
         <main>
-            <!-- Topic Trends Section -->
             <section id="trends" class="tab-content active">
                 <h2>Topic Trends Over Time</h2>
                 <div class="chart-container">
@@ -44,8 +41,6 @@
                     <button onclick="loadTrends()">Update Chart</button>
                 </div>
             </section>
-
-            <!-- Co-occurrence Section -->
             <section id="cooccurrence" class="tab-content">
                 <h2>Topic Co-occurrence</h2>
                 <div class="chart-container">
@@ -56,8 +51,6 @@
                     <button onclick="loadCooccurrence()">Update Chart</button>
                 </div>
             </section>
-
-            <!-- Multithreading Pitfalls Section -->
             <section id="pitfalls" class="tab-content">
                 <h2>Common Pitfalls in Multithreading (Word Cloud)</h2>
                 <div class="chart-container">
@@ -65,14 +58,15 @@
                 </div>
                 <button onclick="loadPitfalls()">Refresh Analysis</button>
             </section>
-
             <!-- Solvability Section -->
             <section id="solvability" class="tab-content">
                 <h2>Solvable vs. Hard-to-Solve Questions</h2>
-                <div class="chart-container">
-                    <canvas id="solvabilityChart"></canvas>
+                <div id="solvabilityChartsContainer" class="charts-grid">
+                    <!-- Pie charts will be injected here -->
                 </div>
-                <button onclick="loadSolvability()">Analyze</button>
+                <div class="controls">
+                    <button onclick="loadSolvability()">Analyze</button>
+                </div>
             </section>
         </main>
     </div>

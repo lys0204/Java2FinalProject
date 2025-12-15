@@ -1,5 +1,5 @@
 :root {
-    --primary-color: #f48024; /* Stack Overflow Orange */
+    --primary-color: #f48024; 
     --secondary-color: #bcbbbb;
     --bg-color: #f8f9f9;
     --text-color: #232629;
@@ -30,7 +30,6 @@ h1 {
     color: #000;
 }
 
-/* Controls & Cards */
 .card {
     background: var(--card-bg);
     padding: 20px;
@@ -55,7 +54,6 @@ button:hover {
     background-color: #d66a1a;
 }
 
-/* Navigation Tabs */
 nav {
     display: flex;
     justify-content: center;
@@ -73,7 +71,6 @@ nav {
     color: white;
 }
 
-/* Tab Content */
 .tab-content {
     display: none;
     background: var(--card-bg);
@@ -92,7 +89,6 @@ nav {
     to { opacity: 1; }
 }
 
-/* Charts */
 .chart-container {
     position: relative;
     height: 400px;
@@ -111,7 +107,6 @@ nav {
     height: 100%;
 }
 
-/* Data Lists */
 .data-list {
     margin: 20px 0;
     text-align: left;
@@ -134,4 +129,27 @@ input {
     border: 1px solid #ccc;
     border-radius: 4px;
     margin-right: 10px;
+}
+
+/* Merged from extra_style.css */
+.charts-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+    margin-top: 20px;
+}
+
+.chart-wrapper {
+    background: #fff;
+    padding: 15px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    text-align: center;
+    height: 300px;
+}
+
+.chart-wrapper h3 {
+    margin-top: 0;
+    font-size: 16px;
+    color: #555;
 }

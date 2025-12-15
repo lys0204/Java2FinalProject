@@ -43,19 +43,16 @@ function showTab(tabId) {
     if(tabId === 'solvability') loadSolvability();
 }
 
-// --- Topic Trends ---
 async function loadTrends() {
     const tag = document.getElementById('trendTag').value;
     
-    // Fix: Set range from 2008 (Stack Overflow launch) to now
-    // Because collected data might be sorted by votes (old questions)
+
     const end = new Date().toISOString();
     const start = new Date('2008-01-01T00:00:00Z').toISOString();
 
     try {
         const response = await fetch(`${API_BASE}/trend?tagName=${tag}&start=${start}&end=${end}`);
-        const data = await response.json(); // Map<String, Long>
-
+        const data = await response.json(); 
         const labels = Object.keys(data).sort();
         const values = labels.map(k => data[k]);
 
@@ -80,13 +77,13 @@ async function loadTrends() {
     }
 }
 
-// --- Co-occurrence ---
+
 async function loadCooccurrence() {
     const n = document.getElementById('coocN').value || 10;
     
     try {
         const response = await fetch(`${API_BASE}/topNpairs?topN=${n}`);
-        const data = await response.json(); // List<Entry<String, Integer>>
+        const data = await response.json(); 
 
         const labels = data.map(item => Object.keys(item)[0]); 
         const values = data.map(item => Object.values(item)[0]);
@@ -113,27 +110,23 @@ async function loadCooccurrence() {
     }
 }
 
-// --- Pitfalls (Word Cloud) ---
+
 async function loadPitfalls() {
     try {
         const response = await fetch(`${API_BASE}/wordcloud`);
-        const data = await response.json(); // Map<String, Long>
+        const data = await response.json(); 
 
-        // Transform to [[word, weight], ...]
         const list = Object.entries(data).map(([word, weight]) => [word, weight]);
 
         const canvas = document.getElementById('pitfallsCanvas');
-        // Clear previous
         const ctx = canvas.getContext('2d');
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-        // Check if WordCloud is loaded
         if (typeof WordCloud !== 'undefined') {
             WordCloud(canvas, {
                 list: list,
                 gridSize: 8,
                 weightFactor: function (size) {
-                    return Math.pow(size, 0.8) * 2; // Adjust scaling
+                    return Math.pow(size, 0.8) * 2;
                 },
                 fontFamily: 'Times, serif',
                 color: 'random-dark',
@@ -148,80 +141,100 @@ async function loadPitfalls() {
     }
 }
 
-// --- Solvability ---
 async function loadSolvability() {
     try {
         const response = await fetch(`${API_BASE}/solvability`);
         const data = await response.json(); 
-        // Data format: {"Trendiness": "12.5_10.0", ...}
-
         const categories = Object.keys(data);
-        const solvableValues = [];
-        const hardValues = [];
+
+        // Handle cleanup of previous instances
+        if (Array.isArray(solvabilityChartInstance)) {
+            solvabilityChartInstance.forEach(chart => chart.destroy());
+        } else if (solvabilityChartInstance) {
+            solvabilityChartInstance.destroy();
+        }
+        solvabilityChartInstance = [];
+
+        const container = document.getElementById('solvabilityChartsContainer');
+        container.innerHTML = ''; // Clear previous charts
 
         categories.forEach(cat => {
             const parts = data[cat].split('_');
-            solvableValues.push(parseFloat(parts[0]));
-            hardValues.push(parseFloat(parts[1]));
-        });
+            const solvableVal = parseFloat(parts[0]);
+            const hardVal = parseFloat(parts[1]);
 
-        const ctx = document.getElementById('solvabilityChart').getContext('2d');
-        if (solvabilityChartInstance) solvabilityChartInstance.destroy();
+            // Create wrapper and canvas
+            const wrapper = document.createElement('div');
+            wrapper.className = 'chart-wrapper';
+            
+            // Add title for the pie chart
+            const title = document.createElement('h3');
+            title.innerText = cat;
+            title.style.textAlign = 'center';
+            wrapper.appendChild(title);
 
-        solvabilityChartInstance = new Chart(ctx, {
-            type: 'bar',
-            data: {
-                labels: categories,
-                datasets: [
-                    {
-                        label: 'Solvable Questions',
-                        data: solvableValues,
-                        backgroundColor: 'rgba(75, 192, 192, 0.6)'
-                    },
-                    {
-                        label: 'Hard Questions',
-                        data: hardValues,
-                        backgroundColor: 'rgba(255, 99, 132, 0.6)'
-                    }
-                ]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                interaction: {
-                    mode: 'index',
-                    intersect: false,
+            const canvas = document.createElement('canvas');
+            wrapper.appendChild(canvas);
+            container.appendChild(wrapper);
+
+            const ctx = canvas.getContext('2d');
+            const newChart = new Chart(ctx, {
+                type: 'pie',
+                data: {
+                    labels: ['Solvable', 'Hard'],
+                    datasets: [{
+                        data: [solvableVal, hardVal],
+                        backgroundColor: [
+                            'rgba(75, 192, 192, 0.6)', // Green for Solvable
+                            'rgba(255, 99, 132, 0.6)'  // Red for Hard
+                        ],
+                        borderColor: [
+                            'rgba(75, 192, 192, 1)',
+                            'rgba(255, 99, 132, 1)'
+                        ],
+                        borderWidth: 1
+                    }]
                 },
-                scales: {
-                    y: {
-                        beginAtZero: true
-                    }
-                },
-                plugins: {
-                    tooltip: {
-                        callbacks: {
-                            label: function(context) {
-                                let label = context.dataset.label || '';
-                                if (label) {
-                                    label += ': ';
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    // We want to show info for BOTH Solvable and Hard, regardless of what is hovered.
+                                    // We can return an array of strings to show multiple lines.
+                                    
+                                    const dataset = context.dataset;
+                                    const total = context.chart._metasets[context.datasetIndex].total;
+                                    
+                                    const solvableVal = dataset.data[0];
+                                    const hardVal = dataset.data[1];
+                                    
+                                    const solvablePct = ((solvableVal / total) * 100).toFixed(1) + '%';
+                                    const hardPct = ((hardVal / total) * 100).toFixed(1) + '%';
+
+                                    return [
+                                        `Solvable: ${solvableVal} (${solvablePct})`,
+                                        `Hard: ${hardVal} (${hardPct})`
+                                    ];
                                 }
-                                if (context.parsed.y !== null) {
-                                    label += context.parsed.y;
-                                }
-                                return label;
                             }
                         }
                     }
                 }
-            }
+            });
+            solvabilityChartInstance.push(newChart);
         });
+
     } catch (e) {
         console.error("Failed to load solvability", e);
     }
 }
 
-// Initial load
 document.addEventListener('DOMContentLoaded', () => {
-    // Do not auto-load trends to save API calls on startup, or keep it if desired
-    // showTab('trends'); 
+
 });
